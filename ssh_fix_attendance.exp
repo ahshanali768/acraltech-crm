@@ -1,0 +1,66 @@
+#!/usr/bin/expect -f
+
+# SSH connection script with password
+set timeout 30
+set password "Zaq!2wsx"
+set host "srv521.hstgr.io"
+set port "65002"
+set user "u806021370"
+
+# Start SSH connection
+spawn ssh -p $port -o StrictHostKeyChecking=no $user@$host
+
+# Handle password prompt
+expect {
+    "*password*" {
+        send "$password\r"
+        exp_continue
+    }
+    "*$*" {
+        # We're logged in, now execute the database fix
+        send "cd /home/u806021370/domains/acraltech.site/public_html\r"
+        expect "*$*"
+        
+        # Check current table structure
+        send "mysql -h localhost -u u806021370_laravel_crm -p'Zaq!2wsx' u806021370_laravel_crm -e 'DESCRIBE agent_attendance;'\r"
+        expect "*$*"
+        
+        # Execute the fix
+        send "mysql -h localhost -u u806021370_laravel_crm -p'Zaq!2wsx' u806021370_laravel_crm << 'EOF'\r"
+        send "USE u806021370_laravel_crm;\r"
+        send "ALTER TABLE agent_attendance ADD COLUMN IF NOT EXISTS login_time TIMESTAMP NULL;\r"
+        send "ALTER TABLE agent_attendance ADD COLUMN IF NOT EXISTS logout_time TIMESTAMP NULL;\r"
+        send "ALTER TABLE agent_attendance ADD COLUMN IF NOT EXISTS latitude DECIMAL(10,8) NULL;\r"
+        send "ALTER TABLE agent_attendance ADD COLUMN IF NOT EXISTS longitude DECIMAL(11,8) NULL;\r"
+        send "ALTER TABLE agent_attendance ADD COLUMN IF NOT EXISTS address TEXT NULL;\r"
+        send "ALTER TABLE agent_attendance ADD COLUMN IF NOT EXISTS logout_latitude DECIMAL(10,8) NULL;\r"
+        send "ALTER TABLE agent_attendance ADD COLUMN IF NOT EXISTS logout_longitude DECIMAL(11,8) NULL;\r"
+        send "ALTER TABLE agent_attendance ADD COLUMN IF NOT EXISTS logout_address TEXT NULL;\r"
+        send "ALTER TABLE agent_attendance ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'present';\r"
+        send "INSERT IGNORE INTO agent_attendance (user_id, date, login_time, logout_time, latitude, longitude, address, logout_latitude, logout_longitude, logout_address, status, created_at, updated_at) VALUES (1, CURDATE(), NOW() - INTERVAL 8 HOUR, NOW() - INTERVAL 1 HOUR, 40.7128, -74.0060, 'New York, NY', 40.7580, -73.9855, 'Times Square, NY', 'present', NOW(), NOW());\r"
+        send "DESCRIBE agent_attendance;\r"
+        send "SELECT COUNT(*) as total_records FROM agent_attendance;\r"
+        send "EOF\r"
+        expect "*$*"
+        
+        # Clear Laravel caches
+        send "php artisan cache:clear\r"
+        expect "*$*"
+        send "php artisan config:clear\r"
+        expect "*$*"
+        send "php artisan view:clear\r"
+        expect "*$*"
+        
+        send "exit\r"
+    }
+    timeout {
+        puts "Connection timed out"
+        exit 1
+    }
+    eof {
+        puts "Connection closed"
+        exit 1
+    }
+}
+
+interact

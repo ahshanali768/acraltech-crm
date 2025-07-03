@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS Location Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold text-gray-900 mb-8">GPS Location Test for Attendance System</h1>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Test Location Services</h2>
+            
+            <div class="space-y-4">
+                <button id="getCurrentLocation" 
+                        class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium">
+                    Get Current Location
+                </button>
+                
+                <div id="locationResult" class="p-4 border rounded-lg hidden">
+                    <h3 class="font-semibold mb-2">Location Information:</h3>
+                    <div id="locationDetails"></div>
+                </div>
+                
+                <div id="allowedLocationCheck" class="p-4 border rounded-lg hidden">
+                    <h3 class="font-semibold mb-2">Allowed Location Check:</h3>
+                    <div id="locationValidation"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">How GPS Attendance Works</h2>
+            <div class="space-y-3 text-gray-700">
+                <p><strong>1. Admin Setup:</strong> Admin uses "Get Current Location" to capture their exact GPS coordinates and sets a radius (e.g., 100 meters)</p>
+                <p><strong>2. Location Storage:</strong> The system stores the location name, GPS coordinates, radius, and automatically gets the address</p>
+                <p><strong>3. Agent Check-in:</strong> When agents try to check in, their GPS location is compared against all allowed locations</p>
+                <p><strong>4. Validation:</strong> If the agent is within the radius of any allowed location, check-in is permitted</p>
+                <p><strong>5. Real-time Feedback:</strong> Agents see their distance from the nearest allowed location</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('getCurrentLocation').addEventListener('click', function() {
+            const button = this;
+            const locationResult = document.getElementById('locationResult');
+            const locationDetails = document.getElementById('locationDetails');
+            const allowedLocationCheck = document.getElementById('allowedLocationCheck');
+            const locationValidation = document.getElementById('locationValidation');
+            
+            button.disabled = true;
+            button.textContent = 'Getting Location...';
+            
+            if (!navigator.geolocation) {
+                alert('Geolocation is not supported by this browser.');
+                button.disabled = false;
+                button.textContent = 'Get Current Location';
+                return;
+            }
+            
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const accuracy = position.coords.accuracy;
+                    
+                    locationDetails.innerHTML = `
+                        <div class="space-y-2">
+                            <p><strong>Latitude:</strong> ${lat.toFixed(6)}</p>
+                            <p><strong>Longitude:</strong> ${lng.toFixed(6)}</p>
+                            <p><strong>Accuracy:</strong> ±${Math.round(accuracy)} meters</p>
+                            <p><strong>Timestamp:</strong> ${new Date().toLocaleString()}</p>
+                        </div>
+                    `;
+                    
+                    locationResult.classList.remove('hidden');
+                    
+                    // Test against allowed locations (mock check)
+                    checkAllowedLocations(lat, lng);
+                    
+                    button.disabled = false;
+                    button.textContent = 'Get Current Location';
+                },
+                function(error) {
+                    let errorMessage = 'Error getting location: ';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage += 'User denied the request for Geolocation.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage += 'Location information is unavailable.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage += 'The request to get user location timed out.';
+                            break;
+                        default:
+                            errorMessage += 'An unknown error occurred.';
+                            break;
+                    }
+                    alert(errorMessage);
+                    button.disabled = false;
+                    button.textContent = 'Get Current Location';
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 60000
+                }
+            );
+        });
+        
+        function checkAllowedLocations(lat, lng) {
+            // This would normally be an AJAX call to your Laravel backend
+            // For demo purposes, we'll simulate some allowed locations
+            
+            const mockAllowedLocations = [
+                { name: 'Main Office', lat: lat + 0.001, lng: lng + 0.001, radius: 100 },
+                { name: 'Branch Office', lat: lat + 0.005, lng: lng + 0.005, radius: 150 },
+                { name: 'Remote Location', lat: lat - 0.002, lng: lng - 0.002, radius: 200 }
+            ];
+            
+            const locationValidation = document.getElementById('locationValidation');
+            const allowedLocationCheck = document.getElementById('allowedLocationCheck');
+            
+            let validationHTML = '<div class="space-y-3">';
+            let isAllowed = false;
+            
+            mockAllowedLocations.forEach(location => {
+                const distance = calculateDistance(lat, lng, location.lat, location.lng);
+                const withinRadius = distance <= location.radius;
+                
+                if (withinRadius) {
+                    isAllowed = true;
+                }
+                
+                validationHTML += `
+                    <div class="flex items-center justify-between p-3 rounded ${withinRadius ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border">
+                        <div>
+                            <p class="font-medium ${withinRadius ? 'text-green-800' : 'text-red-800'}">${location.name}</p>
+                            <p class="text-sm ${withinRadius ? 'text-green-600' : 'text-red-600'}">
+                                Distance: ${Math.round(distance)}m | Radius: ${location.radius}m
+                            </p>
+                        </div>
+                        <span class="px-2 py-1 rounded text-xs font-medium ${withinRadius ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${withinRadius ? 'ALLOWED' : 'TOO FAR'}
+                        </span>
+                    </div>
+                `;
+            });
+            
+            validationHTML += `
+                <div class="mt-4 p-3 rounded ${isAllowed ? 'bg-green-100 border-green-300' : 'bg-red-100 border-red-300'} border">
+                    <p class="font-semibold ${isAllowed ? 'text-green-800' : 'text-red-800'}">
+                        Result: ${isAllowed ? 'CHECK-IN ALLOWED' : 'CHECK-IN DENIED'}
+                    </p>
+                    <p class="text-sm ${isAllowed ? 'text-green-600' : 'text-red-600'}">
+                        ${isAllowed ? 'You are within an allowed location radius.' : 'You are not within any allowed location radius.'}
+                    </p>
+                </div>
+            `;
+            
+            validationHTML += '</div>';
+            
+            locationValidation.innerHTML = validationHTML;
+            allowedLocationCheck.classList.remove('hidden');
+        }
+        
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000; // Earth's radius in meters
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                     Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Debug Tool</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-2xl mx-auto">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h1 class="text-2xl font-bold mb-6 text-center">Location Debug Tool</h1>
+            
+            <!-- Browser Info -->
+            <div class="bg-blue-50 border border-blue-200 rounded p-4 mb-6">
+                <h3 class="font-semibold mb-2">Browser Information</h3>
+                <div class="text-sm space-y-1">
+                    <div>User Agent: <span id="userAgent" class="font-mono"></span></div>
+                    <div>Protocol: <span id="protocol" class="font-mono"></span></div>
+                    <div>Geolocation Support: <span id="geoSupport" class="font-mono"></span></div>
+                </div>
+            </div>
+
+            <!-- Permission Status -->
+            <div class="bg-gray-50 border border-gray-200 rounded p-4 mb-6">
+                <h3 class="font-semibold mb-2">Permission Status</h3>
+                <div id="permissionStatus" class="text-sm"></div>
+            </div>
+
+            <!-- Test Buttons -->
+            <div class="space-y-3 mb-6">
+                <button onclick="checkPermission()" class="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700">
+                    Check Permission Status
+                </button>
+                <button onclick="requestLocation()" class="w-full bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700">
+                    Request Location (Basic)
+                </button>
+                <button onclick="requestLocationHighAccuracy()" class="w-full bg-yellow-600 text-white py-2 px-4 rounded hover:bg-yellow-700">
+                    Request Location (High Accuracy)
+                </button>
+                <button onclick="watchPosition()" class="w-full bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700">
+                    Watch Position
+                </button>
+                <button onclick="stopWatching()" class="w-full bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700">
+                    Stop Watching
+                </button>
+            </div>
+
+            <!-- Results -->
+            <div class="bg-gray-50 border border-gray-200 rounded p-4">
+                <h3 class="font-semibold mb-2">Results</h3>
+                <div id="results" class="text-sm font-mono whitespace-pre-wrap max-h-64 overflow-y-auto"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let watchId = null;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('userAgent').textContent = navigator.userAgent;
+            document.getElementById('protocol').textContent = window.location.protocol;
+            document.getElementById('geoSupport').textContent = 'geolocation' in navigator ? 'Yes' : 'No';
+        });
+
+        function log(message) {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            results.textContent += `[${timestamp}] ${message}\n`;
+            results.scrollTop = results.scrollHeight;
+            console.log(message);
+        }
+
+        async function checkPermission() {
+            try {
+                if ('permissions' in navigator) {
+                    const permission = await navigator.permissions.query({name: 'geolocation'});
+                    log(`Permission status: ${permission.state}`);
+                    document.getElementById('permissionStatus').innerHTML = 
+                        `<span class="px-2 py-1 rounded text-xs ${getStatusColor(permission.state)}">${permission.state}</span>`;
+                    
+                    permission.addEventListener('change', () => {
+                        log(`Permission changed to: ${permission.state}`);
+                        document.getElementById('permissionStatus').innerHTML = 
+                            `<span class="px-2 py-1 rounded text-xs ${getStatusColor(permission.state)}">${permission.state}</span>`;
+                    });
+                } else {
+                    log('Permissions API not supported');
+                    document.getElementById('permissionStatus').textContent = 'Permissions API not supported';
+                }
+            } catch (error) {
+                log(`Error checking permission: ${error.message}`);
+            }
+        }
+
+        function getStatusColor(status) {
+            switch(status) {
+                case 'granted': return 'bg-green-100 text-green-800';
+                case 'denied': return 'bg-red-100 text-red-800';
+                case 'prompt': return 'bg-yellow-100 text-yellow-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function requestLocation() {
+            if (!('geolocation' in navigator)) {
+                log('Geolocation not supported');
+                return;
+            }
+
+            log('Requesting location (basic)...');
+            
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    log(`Location received:`);
+                    log(`  Latitude: ${position.coords.latitude}`);
+                    log(`  Longitude: ${position.coords.longitude}`);
+                    log(`  Accuracy: ${position.coords.accuracy}m`);
+                    log(`  Timestamp: ${new Date(position.timestamp).toLocaleString()}`);
+                },
+                function(error) {
+                    log(`Error: ${getErrorMessage(error)}`);
+                },
+                {
+                    timeout: 10000,
+                    enableHighAccuracy: false,
+                    maximumAge: 60000
+                }
+            );
+        }
+
+        function requestLocationHighAccuracy() {
+            if (!('geolocation' in navigator)) {
+                log('Geolocation not supported');
+                return;
+            }
+
+            log('Requesting location (high accuracy)...');
+            
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    log(`High accuracy location received:`);
+                    log(`  Latitude: ${position.coords.latitude}`);
+                    log(`  Longitude: ${position.coords.longitude}`);
+                    log(`  Accuracy: ${position.coords.accuracy}m`);
+                    log(`  Altitude: ${position.coords.altitude}m`);
+                    log(`  Speed: ${position.coords.speed}m/s`);
+                    log(`  Heading: ${position.coords.heading}°`);
+                    log(`  Timestamp: ${new Date(position.timestamp).toLocaleString()}`);
+                },
+                function(error) {
+                    log(`Error: ${getErrorMessage(error)}`);
+                },
+                {
+                    timeout: 15000,
+                    enableHighAccuracy: true,
+                    maximumAge: 0
+                }
+            );
+        }
+
+        function watchPosition() {
+            if (!('geolocation' in navigator)) {
+                log('Geolocation not supported');
+                return;
+            }
+
+            if (watchId !== null) {
+                log('Already watching position');
+                return;
+            }
+
+            log('Starting position watch...');
+            
+            watchId = navigator.geolocation.watchPosition(
+                function(position) {
+                    log(`Watch position update:`);
+                    log(`  Latitude: ${position.coords.latitude}`);
+                    log(`  Longitude: ${position.coords.longitude}`);
+                    log(`  Accuracy: ${position.coords.accuracy}m`);
+                },
+                function(error) {
+                    log(`Watch error: ${getErrorMessage(error)}`);
+                },
+                {
+                    timeout: 10000,
+                    enableHighAccuracy: true,
+                    maximumAge: 5000
+                }
+            );
+        }
+
+        function stopWatching() {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+                log('Stopped watching position');
+            } else {
+                log('Not currently watching position');
+            }
+        }
+
+        function getErrorMessage(error) {
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    return `Permission denied (${error.code}): ${error.message}`;
+                case error.POSITION_UNAVAILABLE:
+                    return `Position unavailable (${error.code}): ${error.message}`;
+                case error.TIMEOUT:
+                    return `Request timeout (${error.code}): ${error.message}`;
+                default:
+                    return `Unknown error (${error.code}): ${error.message}`;
+            }
+        }
+
+        // Auto-check permission on load
+        checkPermission();
+    </script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS Location Debug</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-2xl mx-auto">
+        <h1 class="text-3xl font-bold text-gray-900 mb-8">GPS Location Debug</h1>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Test GPS Location Capture</h2>
+            
+            <div class="space-y-4">
+                <button id="testLocation" 
+                        class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium">
+                    Test Get Current Location
+                </button>
+                
+                <div id="results" class="space-y-2 hidden">
+                    <div class="p-4 border rounded-lg">
+                        <h3 class="font-semibold mb-2">Location Results:</h3>
+                        <div id="locationData"></div>
+                    </div>
+                </div>
+                
+                <div id="testForm" class="hidden">
+                    <h3 class="font-semibold mb-2">Test Form Data:</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Location Name:</label>
+                            <input type="text" id="testName" class="w-full border rounded px-3 py-2" placeholder="Test Location">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Radius (meters):</label>
+                            <input type="number" id="testRadius" class="w-full border rounded px-3 py-2" value="100">
+                        </div>
+                    </div>
+                    <div class="mt-4 grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Latitude:</label>
+                            <input type="text" id="testLat" class="w-full border rounded px-3 py-2" readonly>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Longitude:</label>
+                            <input type="text" id="testLng" class="w-full border rounded px-3 py-2" readonly>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium mb-1">Address:</label>
+                        <textarea id="testAddress" class="w-full border rounded px-3 py-2" rows="2" readonly></textarea>
+                    </div>
+                    <div class="mt-4">
+                        <button id="testSubmit" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
+                            Test Form Submission (Console Log)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <h3 class="font-semibold text-yellow-800 mb-2">Browser Requirements:</h3>
+            <ul class="text-yellow-700 text-sm space-y-1">
+                <li>• Must be served over HTTPS (or localhost for development)</li>
+                <li>• Browser must support Geolocation API</li>
+                <li>• User must grant location permission</li>
+                <li>• Check browser console for detailed logs</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('testLocation').addEventListener('click', function() {
+            const button = this;
+            const results = document.getElementById('results');
+            const locationData = document.getElementById('locationData');
+            const testForm = document.getElementById('testForm');
+            
+            button.disabled = true;
+            button.textContent = 'Getting Location...';
+            
+            console.log('Testing geolocation...');
+            
+            if (!navigator.geolocation) {
+                alert('Geolocation is not supported by this browser.');
+                button.disabled = false;
+                button.textContent = 'Test Get Current Location';
+                return;
+            }
+            
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    console.log('Position received:', position);
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const accuracy = position.coords.accuracy;
+                    
+                    locationData.innerHTML = `
+                        <div class="space-y-2 text-sm">
+                            <p><strong>Latitude:</strong> ${lat}</p>
+                            <p><strong>Longitude:</strong> ${lng}</p>
+                            <p><strong>Accuracy:</strong> ±${Math.round(accuracy)} meters</p>
+                            <p><strong>Timestamp:</strong> ${new Date(position.timestamp).toLocaleString()}</p>
+                        </div>
+                    `;
+                    
+                    // Fill test form
+                    document.getElementById('testLat').value = lat;
+                    document.getElementById('testLng').value = lng;
+                    
+                    // Try reverse geocoding
+                    fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`)
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('Geocoding response:', data);
+                            const address = data.display_name || data.city || data.locality || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                            document.getElementById('testAddress').value = address;
+                            
+                            locationData.innerHTML += `<p class="mt-2"><strong>Address:</strong> ${address}</p>`;
+                        })
+                        .catch(error => {
+                            console.error('Geocoding error:', error);
+                            const fallback = `Location at ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                            document.getElementById('testAddress').value = fallback;
+                            locationData.innerHTML += `<p class="mt-2 text-yellow-600"><strong>Address:</strong> ${fallback} (geocoding failed)</p>`;
+                        });
+                    
+                    results.classList.remove('hidden');
+                    testForm.classList.remove('hidden');
+                    
+                    button.disabled = false;
+                    button.textContent = 'Test Get Current Location';
+                },
+                function(error) {
+                    console.error('Geolocation error:', error);
+                    let errorMessage = 'Error: ';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage += 'User denied the request for Geolocation.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage += 'Location information is unavailable.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage += 'The request to get user location timed out.';
+                            break;
+                        default:
+                            errorMessage += 'An unknown error occurred.';
+                            break;
+                    }
+                    alert(errorMessage);
+                    button.disabled = false;
+                    button.textContent = 'Test Get Current Location';
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 60000
+                }
+            );
+        });
+        
+        document.getElementById('testSubmit').addEventListener('click', function() {
+            const formData = {
+                location_name: document.getElementById('testName').value,
+                radius_meters: document.getElementById('testRadius').value,
+                latitude: document.getElementById('testLat').value,
+                longitude: document.getElementById('testLng').value,
+                address: document.getElementById('testAddress').value
+            };
+            
+            console.log('Form data that would be submitted:', formData);
+            alert('Form data logged to console. Check developer tools.');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+/* Modern dark mode toggle inspired by Dribbble shot */
+.toggle-darkmode {
+  @apply relative w-14 h-8 flex items-center bg-gray-300 dark:bg-gray-700 rounded-full p-1 cursor-pointer transition-colors duration-300;
+}
+.toggle-darkmode .toggle-dot {
+  @apply absolute left-1 top-1 bg-white dark:bg-gray-900 w-6 h-6 rounded-full shadow-md transition-all duration-300;
+}
+.toggle-darkmode .toggle-dot.sun {
+  @apply flex items-center justify-center text-yellow-400;
+}
+.toggle-darkmode .toggle-dot.moon {
+  @apply flex items-center justify-center text-gray-600 dark:text-yellow-300;
+}
+.toggle-darkmode .toggle-dot.move {
+  left: 2.5rem;
+}
