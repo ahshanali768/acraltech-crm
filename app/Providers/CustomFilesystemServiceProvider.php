@@ -3,13 +3,13 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Filesystem\Filesystem;
 
 class CustomFilesystemServiceProvider extends ServiceProvider
 {
     public function register()
     {
-        $this->app->singleton('files', function ($app) {
+        $this->app->singleton('files', function () {
             return new \Illuminate\Filesystem\Filesystem();
         });
     }
@@ -33,11 +33,21 @@ class CustomFilesystemServiceProvider extends ServiceProvider
         }
 
         // Create storage link if it doesn't exist
-        if (!file_exists(public_path('storage'))) {
-            $this->app->make('files')->link(
-                storage_path('app/public'),
-                public_path('storage')
-            );
+        $filesystem = $this->app->make('files');
+        $target = storage_path('app/public');
+        $link = public_path('storage');
+
+        if (!file_exists($link) && file_exists($target)) {
+            try {
+                if (function_exists('symlink')) {
+                    $filesystem->link($target, $link);
+                } else {
+                    exec('ln -s ' . escapeshellarg($target) . ' ' . escapeshellarg($link));
+                }
+            } catch (\Throwable $e) {
+                // Fallback to copying directory on failure
+                $filesystem->copyDirectory($target, $link);
+            }
         }
     }
 }
